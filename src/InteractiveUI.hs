@@ -112,8 +112,8 @@ import           Util
 
 -- Haskell Libraries
 import           System.Console.Haskeline as Haskeline
-import Network.Socket
-import qualified Network
+import Network.Socket 
+import qualified Network.Socket as Network
 import Network.BSD
 import           Control.Applicative hiding (empty)
 import           Control.Monad as Monad
@@ -692,7 +692,8 @@ runServer = do
        _ <-
          forkIO
            (let loop = do
-                  (h, _, _) <- Network.accept sock
+                  (s',_) <- Network.accept sock
+                  h <- socketToHandle s' ReadWriteMode
                   hSetBuffering h NoBuffering
                   mencoding <- hGetEncoding stdout
                   hSetEncoding h (fromMaybe utf8 mencoding)
@@ -735,7 +736,7 @@ listenOnLoopback = do
     (\sock -> do
        setSocketOption sock ReuseAddr 1
        address <- getHostByName "127.0.0.1"
-       bind sock (SockAddrInet aNY_PORT (hostAddress address))
+       bind sock (SockAddrInet 0 (hostAddress address))
        listen sock maxListenQueue
        return sock)
 

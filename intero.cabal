@@ -73,7 +73,7 @@ executable intero
     bytestring,
     directory,
     filepath,
-    ghc >= 7.8 && <= 8.6.5,
+    ghc >= 7.8 && <= 8.8.2,
     ghc-paths,
     haskeline,
     process,
@@ -82,6 +82,7 @@ executable intero
     containers,
     time,
     network,
+    network-bsd,
     random,
     mtl
 

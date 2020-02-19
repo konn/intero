@@ -1,5 +1,4 @@
-{-# LANGUAGE NondecreasingIndentation #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, NondecreasingIndentation #-}
 {-# OPTIONS -fno-warn-incomplete-patterns -optc-DNON_POSIX_SOURCE -fno-warn-warnings-deprecations #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
 
@@ -14,77 +13,74 @@
 module Main (main) where
 
 -- The official GHC API
-import qualified Data.Version (showVersion)
-import qualified GHC
-import GHC              ( -- DynFlags(..), HscTarget(..),
-                          -- GhcMode(..), GhcLink(..),
-                          Ghc, GhcMonad(..),
-                          LoadHowMuch(..) )
 import           CmdLineParser
+import qualified Data.Version  (showVersion)
+import           GHC           (Ghc, GhcMonad (..), LoadHowMuch (..))
+import qualified GHC
 import qualified Paths_intero
 
 -- ghci-ng
 import qualified GHC.Paths
-import Intero.Compat
+import           Intero.Compat
 
 -- Implementations of the various modes (--show-iface, mkdependHS. etc.)
-import           LoadIface ( showIface )
-import           HscMain ( newHscEnv )
-import           DriverPipeline ( oneShot, compileFile )
-import           DriverMkDepend ( doMkDependHS )
+import DriverMkDepend (doMkDependHS)
+import DriverPipeline (compileFile, oneShot)
+import HscMain        (newHscEnv)
+import LoadIface      (showIface)
 #ifdef GHCI
-import           InteractiveUI ( interactiveUI, ghciWelcomeMsg, defaultGhciSettings )
+import InteractiveUI (defaultGhciSettings, ghciWelcomeMsg, interactiveUI)
 #endif
 
 
 -- Various other random stuff that we need
-import           Config
-import           Constants
-import           HscTypes
+import Config
+import Constants
+import HscTypes
 #if __GLASGOW_HASKELL__ < 709
-import           Packages ( dumpPackages )
+import Packages (dumpPackages)
 #else
-import           Packages ( pprPackages )
+import Packages (pprPackages)
 #endif
-import           DriverPhases
-import           BasicTypes ( failed )
+import BasicTypes   (failed)
+import DriverPhases
 #if __GLASGOW_HASKELL__ < 802
-import           StaticFlags
+import StaticFlags
 #endif
-import           DynFlags
-import           ErrUtils
-import           FastString
-import           Outputable
-import           SrcLoc
-import           Util
-import           Panic
-import           MonadUtils ( liftIO )
+import DynFlags
+import ErrUtils
+import FastString
+import MonadUtils (liftIO)
+import Outputable
+import Panic
+import SrcLoc
+import Util
 
 -- Imports for --abi-hash
-import           LoadIface ( loadUserInterface )
-import           Module ( mkModuleName )
+import LoadIface (loadUserInterface)
+import Module    (mkModuleName)
 #if __GLASGOW_HASKELL__ >= 802
-import           Finder ( findImportedModule, cannotFindModule )
+import Finder (cannotFindModule, findImportedModule)
 #else
-import           Finder ( findImportedModule, cannotFindInterface )
+import Finder (cannotFindInterface, findImportedModule)
 #endif
-import           TcRnMonad ( initIfaceCheck )
+import TcRnMonad (initIfaceCheck)
 #if __GLASGOW_HASKELL__ >= 802
-import           Binary ( openBinMem, put_ )
-import           BinFingerprint ( fingerprintBinMem )
+import Binary         (openBinMem, put_)
+import BinFingerprint (fingerprintBinMem)
 #else
-import           Binary ( openBinMem, put_, fingerprintBinMem )
+import Binary (fingerprintBinMem, openBinMem, put_)
 #endif
 
 -- Standard Haskell libraries
-import           System.IO
-import           System.Environment
-import           System.Exit
-import           System.FilePath
-import           Control.Monad
-import           Data.Char
-import           Data.List
-import           Data.Maybe
+import Control.Monad
+import Data.Char
+import Data.List
+import Data.Maybe
+import System.Environment
+import System.Exit
+import System.FilePath
+import System.IO
 
 -----------------------------------------------------------------------------
 -- ToDo:
@@ -167,10 +163,10 @@ main = do
                 Left preLoadMode ->
                     liftIO $ do
                         case preLoadMode of
-                            ShowInfo               -> showInfo dflags
-                            ShowGhcUsage           -> showGhcUsage  dflags
-                            ShowGhciUsage          -> showGhciUsage dflags
-                            PrintWithDynFlags f    -> putStrLn (f dflags)
+                            ShowInfo            -> showInfo dflags
+                            ShowGhcUsage        -> showGhcUsage  dflags
+                            ShowGhciUsage       -> showGhciUsage dflags
+                            PrintWithDynFlags f -> putStrLn (f dflags)
                 Right postLoadMode ->
                     main' postLoadMode dflags argv3 flagWarnings
 
@@ -184,12 +180,12 @@ main' postLoadMode dflags0 args flagWarnings = do
   let dflt_target = hscTarget dflags0
       (mode, lang, link)
          = case postLoadMode of
-               DoInteractive   -> (CompManager, HscInterpreted, LinkInMemory)
-               DoEval _        -> (CompManager, HscInterpreted, LinkInMemory)
-               DoMake          -> (CompManager, dflt_target,    LinkBinary)
-               DoMkDependHS    -> (MkDepend,    dflt_target,    LinkBinary)
-               DoAbiHash       -> (OneShot,     dflt_target,    LinkBinary)
-               _               -> (OneShot,     dflt_target,    LinkBinary)
+               DoInteractive -> (CompManager, HscInterpreted, LinkInMemory)
+               DoEval _      -> (CompManager, HscInterpreted, LinkInMemory)
+               DoMake        -> (CompManager, dflt_target,    LinkBinary)
+               DoMkDependHS  -> (MkDepend,    dflt_target,    LinkBinary)
+               DoAbiHash     -> (OneShot,     dflt_target,    LinkBinary)
+               _             -> (OneShot,     dflt_target,    LinkBinary)
 
   let dflags1 = case lang of
                 HscInterpreted ->
@@ -280,13 +276,13 @@ main' postLoadMode dflags0 args flagWarnings = do
        GHC.printException e
        liftIO $ exitWith (ExitFailure 1)) $ do
     case postLoadMode of
-       ShowInterface f        -> liftIO $ doShowIface dflags6 f
-       DoMake                 -> doMake srcs
-       DoMkDependHS           -> doMkDependHS (map fst srcs)
-       StopBefore p           -> liftIO (oneShot hsc_env p srcs)
-       DoInteractive          -> ghciUI srcs Nothing
-       DoEval exprs           -> ghciUI srcs $ Just $ reverse exprs
-       DoAbiHash              -> abiHash srcs
+       ShowInterface f -> liftIO $ doShowIface dflags6 f
+       DoMake          -> doMake srcs
+       DoMkDependHS    -> doMkDependHS (map fst srcs)
+       StopBefore p    -> liftIO (oneShot hsc_env p srcs)
+       DoInteractive   -> ghciUI srcs Nothing
+       DoEval exprs    -> ghciUI srcs $ Just $ reverse exprs
+       DoAbiHash       -> abiHash srcs
 
   liftIO $ dumpFinalStats dflags6
 
@@ -443,11 +439,11 @@ mkPreStartupMode = Left
 
 isShowVersionMode :: Mode -> Bool
 isShowVersionMode (Left ShowVersion) = True
-isShowVersionMode _ = False
+isShowVersionMode _                  = False
 
 isShowNumVersionMode :: Mode -> Bool
 isShowNumVersionMode (Left ShowNumVersion) = True
-isShowNumVersionMode _ = False
+isShowNumVersionMode _                     = False
 
 data PreLoadMode
   = ShowGhcUsage                           -- ghc -?
@@ -470,11 +466,11 @@ mkPreLoadMode = Right . Left
 
 isShowGhcUsageMode :: Mode -> Bool
 isShowGhcUsageMode (Right (Left ShowGhcUsage)) = True
-isShowGhcUsageMode _ = False
+isShowGhcUsageMode _                           = False
 
 isShowGhciUsageMode :: Mode -> Bool
 isShowGhciUsageMode (Right (Left ShowGhciUsage)) = True
-isShowGhciUsageMode _ = False
+isShowGhciUsageMode _                            = False
 
 data PostLoadMode
   = ShowInterface FilePath  -- ghc --show-iface
@@ -506,15 +502,15 @@ mkPostLoadMode = Right . Right
 
 isDoInteractiveMode :: Mode -> Bool
 isDoInteractiveMode (Right (Right DoInteractive)) = True
-isDoInteractiveMode _ = False
+isDoInteractiveMode _                             = False
 
 isStopLnMode :: Mode -> Bool
 isStopLnMode (Right (Right (StopBefore StopLn))) = True
-isStopLnMode _ = False
+isStopLnMode _                                   = False
 
 isDoMakeMode :: Mode -> Bool
 isDoMakeMode (Right (Right DoMake)) = True
-isDoMakeMode _ = False
+isDoMakeMode _                      = False
 
 #ifdef GHCI
 isInteractiveMode :: PostLoadMode -> Bool
@@ -529,10 +525,10 @@ isInterpretiveMode (DoEval _)    = True
 isInterpretiveMode _             = False
 
 needsInputsMode :: PostLoadMode -> Bool
-needsInputsMode DoMkDependHS    = True
-needsInputsMode (StopBefore _)  = True
-needsInputsMode DoMake          = True
-needsInputsMode _               = False
+needsInputsMode DoMkDependHS   = True
+needsInputsMode (StopBefore _) = True
+needsInputsMode DoMake         = True
+needsInputsMode _              = False
 
 -- True if we are going to attempt to link in this mode.
 -- (we might not actually link, depending on the GhcLink flag)
@@ -791,7 +787,7 @@ showOptions = putStr (unlines availableOptions)
 #if __GLASGOW_HASKELL__ >= 710
       getFlagName (Flag name _ _) = name
 #else
-      getFlagName (Flag name _) = name
+      getFlagName (Flag name _)   = name
 #endif
 
 showGhcUsage :: DynFlags -> IO ()
@@ -818,7 +814,7 @@ dumpFinalStats dflags =
 dumpFastStringStats :: DynFlags -> IO ()
 dumpFastStringStats dflags = do
   buckets <- getFastStringTable
-  let (entries, longest, has_z) = countFS 0 0 0 buckets
+  let (entries, longest, has_z) = countFS 0 0 0 $ concat buckets
       msg = text "FastString stats:" $$
             nest 4 (vcat [text "size:           " <+> int (length buckets),
                           text "entries:        " <+> int entries,

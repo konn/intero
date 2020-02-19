@@ -1,6 +1,4 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE CPP, RankNTypes, ScopedTypeVariables #-}
 
 -- | Get information on modules, identifiers, etc.
 
@@ -13,31 +11,31 @@ import qualified CoreUtils
 import           Data.Data
 import qualified Data.Generics
 import           Data.List
-import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
+import           Data.Map.Strict   (Map)
+import qualified Data.Map.Strict   as M
 import           Data.Maybe
 import           Data.Time
 import           DataCon
 import           Desugar
 import           DynFlags
 import           GHC
-import           GhcMonad
 import           GhciTypes
+import           GhcMonad
 import           HscTypes
 import           Intero.Compat
 import           Outputable
-import           Prelude hiding (mod)
+import           Prelude           hiding (mod)
 import           System.Directory
 import           TcHsSyn
 import           Var
 
 #if __GLASGOW_HASKELL__ <= 802
-import           NameSet
+import NameSet
 #endif
 
 #if MIN_VERSION_ghc(7,8,3)
 #else
-import           Bag
+import Bag
 #endif
 
 -- | Collect type info data for the loaded modules.
@@ -128,7 +126,7 @@ typecheckModuleSilent parsed = do
 getModuleLocation :: ParsedSource -> SrcSpan
 getModuleLocation pSource = case hsmodName (unLoc pSource) of
   Just located -> getLoc located
-  Nothing -> noSrcSpan
+  Nothing      -> noSrcSpan
 
 -- | Get ALL source spans in the module.
 processAllTypeCheckedModule :: GhcMonad m
@@ -137,11 +135,11 @@ processAllTypeCheckedModule tcm =
   do let tcs = tm_typechecked_source tcm
          bs = listifyAllSpans tcs :: [LHsBind StageReaderId]
          es = listifyAllSpans tcs :: [LHsExpr StageReaderId]
-         ps = listifyAllSpans tcs :: [LPat StageReaderId]
+         ps = listifyAllSpans tcs :: [GenLocated SrcSpan (Pat StageReaderId)]
      bts <- mapM (getTypeLHsBind tcm) bs
      ets <- mapM (getTypeLHsExpr tcm) es
      pts <- mapM (getTypeLPat tcm) ps
-     return (mapMaybe toSpanInfo (sortBy cmp (concat bts ++ catMaybes (concat [ets,pts]))))
+     return (mapMaybe toSpanInfo (sortBy cmp (concat bts ++ catMaybes (ets ++ pts))))
   where cmp (_,a,_) (_,b,_)
           | a `isSubspanOf` b = LT
           | b `isSubspanOf` a = GT
@@ -185,24 +183,24 @@ getTypeLHsExpr _ e =
 #if __GLASGOW_HASKELL__ >= 806
                          HsVar _ (L _ i) -> Just i
 #elif __GLASGOW_HASKELL__ >= 800
-                         HsVar (L _ i) -> Just i
+                         HsVar (L _ i)   -> Just i
 #else
-                         HsVar i -> Just i
+                         HsVar i         -> Just i
 #endif
-                         _ -> Nothing
+                         _               -> Nothing
                       ,getLoc e
                       ,CoreUtils.exprType expr))
   where
 #if __GLASGOW_HASKELL__ >= 806
     unwrapVar (HsWrap _ _ var) = var
 #else
-    unwrapVar (HsWrap _ var) = var
+    unwrapVar (HsWrap _ var)   = var
 #endif
-    unwrapVar e' = e'
+    unwrapVar e'               = e'
 
 -- | Get id and type for patterns.
 getTypeLPat :: (GhcMonad m)
-            => TypecheckedModule -> LPat StageReaderId -> m (Maybe (Maybe Id,SrcSpan,Type))
+            => TypecheckedModule -> GenLocated SrcSpan (Pat StageReaderId) -> m (Maybe (Maybe Id,SrcSpan,Type))
 getTypeLPat _ (L spn pat) =
   return (Just (getMaybeId pat,spn,getPatType pat))
   where
@@ -212,11 +210,11 @@ getTypeLPat _ (L spn pat) =
 #if __GLASGOW_HASKELL__ >= 806
     getMaybeId (VarPat _ (L _ vid)) = Just vid
 #elif __GLASGOW_HASKELL__ >= 800
-    getMaybeId (VarPat (L _ vid)) = Just vid
+    getMaybeId (VarPat (L _ vid))   = Just vid
 #else
-    getMaybeId (VarPat vid) = Just vid
+    getMaybeId (VarPat vid)         = Just vid
 #endif
-    getMaybeId _ = Nothing
+    getMaybeId _                    = Nothing
 
 -- | Get ALL source spans in the source.
 listifyAllSpans :: Typeable a

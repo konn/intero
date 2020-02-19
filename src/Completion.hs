@@ -30,7 +30,7 @@ import           Data.Maybe
 import           Data.Ord
 import           DynFlags
 import           FastString
-import           GHC
+import           GHC hiding (getRealSrcSpan)
 import           HscTypes
 import           Intero.Compat
 import           Name

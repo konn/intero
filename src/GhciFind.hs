@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE BangPatterns #-}
